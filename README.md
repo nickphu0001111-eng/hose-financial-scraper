@@ -14,6 +14,7 @@
 ### Yêu cầu
 - Python 3.8+
 - pip
+- Chrome browser (cho Selenium scraper)
 
 ### Bước 1: Clone repository
 ```bash
@@ -26,17 +27,26 @@ cd hose-financial-scraper
 pip install -r requirements.txt
 ```
 
+**LƯU Ý**: Selenium sẽ tự động tải ChromeDriver via `webdriver-manager`. Không cần tải thủ công!
+
 ## 📝 Cách sử dụng
 
-### Chạy scraper
-```bash
-python main.py
-```
-
-Hoặc chạy trực tiếp:
+### Chạy scraper API (cũ)
 ```bash
 python scraper.py
 ```
+
+### Chạy Selenium scraper (mới - khuyến nghị) ⭐
+```bash
+python scraper_selenium.py
+```
+
+**Ưu điểm Selenium**:
+- ✅ Tự động tải ChromeDriver (không cần download)
+- ✅ Mở browser thật → VietStock không chặn
+- ✅ Có thể lấy dữ liệu JavaScript
+- ✅ Không phụ thuộc vào API VietStock
+- ✅ Dễ cập nhật khi VietStock thay đổi layout
 
 ### Output
 Dữ liệu sẽ được lưu vào folder `output/`:
@@ -50,72 +60,94 @@ Dữ liệu sẽ được lưu vào folder `output/`:
 | code | Mã cổ phiếu | string |
 | name | Tên công ty | string |
 | industry | Ngành công nghiệp | string |
-| year | Năm | integer |
-| asset | Tài sản | float |
-| revenue | Doanh thu | float |
-| lnst | Lợi nhuận ròng | float |
-| vcsh | Vốn chủ sở hữu | float |
+| price | Giá cổ phiếu | string |
+| market_cap | Vốn hóa thị trường | string |
+| pe_ratio | Chỉ số P/E | string |
 
 ## 🔧 Tuỳ chỉnh
 
 ### Thay đổi danh sách cổ phiếu
-Sửa file `get_hose_stocks.py`:
+Sửa file `scraper_selenium.py`:
 ```python
-hose_stocks = ['VCB', 'VIC', 'BID', ...]  # Thêm mã cổ phiếu
+sample_stocks = [
+    'VCB', 'VIC', 'BID', 'CTG', 'VNM', 'FPT', 'MWG', 'PNJ', 'TCB', 'ACB'
+]
 ```
 
-### Thay đổi năm
-Sửa file `main.py`:
+Thêm mã cổ phiếu khác theo nhu cầu.
+
+### Thay đổi output format
 ```python
-scraper.scrape_all_stocks(stocks, years=range(2020, 2026))
+scraper.save_to_file('csv')    # Chỉ CSV
+scraper.save_to_file('excel')  # Chỉ Excel
+scraper.save_to_file('both')   # Cả hai (default)
 ```
 
 ## 📊 Ví dụ output
 
 ```
-code    name                           industry  year  asset       revenue     lnst      vcsh
-----    ----                           --------  ----  -----       -------     ----      ----
-VCB     Vietcombank                    Banking   2020  1500000000  1200000000  150000000 500000000
-VCB     Vietcombank                    Banking   2021  1600000000  1300000000  160000000 550000000
+code    name                           industry        price       market_cap          pe_ratio
+----    ----                           --------        -----       ----------          --------
+VCB     Ngân hàng Thương mại Cổ phần   Banking         82,100      250,500,000,000     8.5
+VIC     Tập đoàn Masan                 Diversified     55,900      180,200,000,000     12.3
+BID     Ngân hàng TMCP Ngân hàng Đầu   Banking         28,650      120,000,000,000     6.2
 ```
 
-## ⚠️ Lưu ý
+## ⚠️ Lưu ý quan trọng
 
-- VietStock có thể block request nếu quá nhanh. Scraper đã có delay (1-2 giây giữa các request)
-- Nếu gặp lỗi, hãy kiểm tra:
-  - Kết nối internet
-  - VietStock có còn hoạt động không
-  - API endpoint có thay đổi không
-- Log được lưu trong `scraper.log`
+### Selenium
+- ✅ **Tự động tải ChromeDriver** via `webdriver-manager`
+- 🔧 Đảm bảo bạn đã cài Chrome browser
+- ⏱️ Mỗi cổ phiếu mất ~5 giây (do phải mở browser)
+- 🚫 VietStock có thể block nếu request quá nhanh (scraper đã có delay 2 giây)
+
+### Log files
+- `scraper.log` - Log từ API scraper (cũ)
+- `scraper_selenium.log` - Log từ Selenium scraper (mới)
 
 ## 🐛 Troubleshooting
 
-### Lỗi: "Connection timeout"
-```python
-# Tăng timeout trong scraper.py
-response = self.session.get(url, params=params, timeout=20)  # Từ 10 -> 20
+### Lỗi: "ChromeDriver not found"
+**Giải pháp**: Cài đặt lại `webdriver-manager`
+```bash
+pip install --upgrade webdriver-manager
 ```
 
-### Lỗi: "API endpoint không tìm thấy"
-API VietStock có thể đã thay đổi. Kiểm tra:
-```bash
-curl "https://vietstock.vn/api/Stock/GetListByExchange?exchange=HOSE"
+### Lỗi: "Chrome not found"
+**Giải pháp**: Cài đặt Chrome browser hoặc sửa path trong code
+```python
+# Nếu dùng Firefox thay vì Chrome
+from selenium.webdriver import Firefox
+driver = Firefox(service=Service(GeckoDriverManager().install()))
 ```
+
+### Lỗi: "Connection timeout"
+**Giải pháp**: Kiểm tra kết nối internet hoặc tăng timeout
+```python
+time.sleep(5)  # Tăng từ 3 -> 5 giây
+```
+
+### Lỗi: "Element not found"
+**Nguyên nhân**: VietStock đã thay đổi HTML structure  
+**Giải pháp**: Cập nhật CSS selectors trong hàm `_extract_*`
 
 ## 📈 Cải tiến tương lai
 
-- [ ] Hỗ trợ scrape từ các nguồn khác (SSI, TCBS)
-- [ ] Xây dựng database để lưu trữ
-- [ ] Dashboard để visualize dữ liệu
-- [ ] Scheduling tự động update dữ liệu hàng tháng
-- [ ] API để query dữ liệu
+- [ ] Hỗ trợ scrape từ các nguồn khác (SSI, TCBS, CafeF)
+- [ ] Xây dựng database SQLite/PostgreSQL
+- [ ] Dashboard Plotly/Streamlit để visualize
+- [ ] Scheduling tự động update dữ liệu hàng tháng (APScheduler)
+- [ ] REST API để query dữ liệu
+- [ ] Cải thiện HTML parser (thêm chỉ số tài chính)
+- [ ] Hỗ trợ multi-threading/async scraping
+- [ ] Unit tests và integration tests
 
-## 📞 Hỗ trợ
+## 📞 Hỗ trợ & Báo cáo lỗi
 
-Nếu gặp vấn đề, vui lòng:
-1. Kiểm tra `scraper.log`
-2. Mở GitHub Issue
-3. Liên hệ qua email
+Nếu gặp vấn đề:
+1. ✅ Kiểm tra log file (`scraper.log` hoặc `scraper_selenium.log`)
+2. ✅ Mở **GitHub Issue** với mô tả lỗi chi tiết
+3. ✅ Kiểm tra **Troubleshooting** section trên
 
 ## 📄 License
 
@@ -123,5 +155,6 @@ MIT License - Tự do sử dụng cho mục đích không lợi nhuận
 
 ---
 
-**Last Updated**: 2026-06-01
-**Author**: nickphu0001111-eng
+**Last Updated**: 2026-06-01  
+**Author**: @nickphu0001111-eng  
+**Status**: ✅ Active Development
